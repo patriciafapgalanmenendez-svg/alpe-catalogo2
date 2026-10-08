@@ -114,7 +114,7 @@ const PRODUCTS_DATABASE = [
 
 const CATEGORIES = [
   { id: 'Todas', name: 'Todo el Catálogo', icon: Store, count: PRODUCTS_DATABASE.length },
-  { id: 'Hostelería', name: 'Hostelería / HORECA', icon: Utensils, count: PRODUCTS_DATABASE.filter(p => p.category === 'Hostelería').length },
+  { id: 'Hostelería', name: 'Hostelería', icon: Utensils, count: PRODUCTS_DATABASE.filter(p => p.category === 'Hostelería').length },
   { id: 'Granel', name: 'Granel', icon: Package, count: PRODUCTS_DATABASE.filter(p => p.category === 'Granel').length },
   { id: 'Empaquetados', name: 'Empaquetados', icon: Store, count: PRODUCTS_DATABASE.filter(p => p.category === 'Empaquetados').length },
   { id: 'Envueltos', name: 'Envueltos Individual', icon: CheckCircle2, count: PRODUCTS_DATABASE.filter(p => p.category === 'Envueltos').length },
@@ -244,7 +244,7 @@ export default function App() {
       {/* Barra superior */}
       <div className="bg-slate-900 text-sky-100 text-xs py-2 px-4 text-center font-medium flex items-center justify-center gap-3">
         <span className="bg-sky-800 px-2.5 py-0.5 rounded text-[11px] uppercase tracking-wider text-sky-200 font-semibold">
-          Atención HORECA & Tiendas
+          Atención Hostelería & Tiendas
         </span>
         <span className="hidden sm:inline">Distribución oficial de pastelería, dulces y repostería.</span>
         <a href="https://wa.me/34985742449" target="_blank" rel="noreferrer" className="underline hover:text-white flex items-center gap-1">
@@ -298,7 +298,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="space-y-4 max-w-2xl">
             <div className="inline-flex items-center gap-2 bg-sky-500/20 text-sky-300 text-xs px-3 py-1 rounded-full font-medium">
-              <Award className="w-3.5 h-3.5 text-sky-400" /> Proveedor Especializado HORECA y Alimentación
+              <Award className="w-3.5 h-3.5 text-sky-400" /> Proveedor Especializado Hostelería y Alimentación
             </div>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold tracking-tight leading-tight">
               Catálogo visual de dulcería, hojaldres y repostería
