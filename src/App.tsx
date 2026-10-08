@@ -21,15 +21,44 @@ import {
   ImageOff
 } from 'lucide-react';
 
-// ============================================================================
-// CLOUDINARY IMAGE HELPER
-// ============================================================================
-const CLOUDINARY_CLOUD_NAME = 'qmxgvssq'; 
-const CLOUDINARY_BASE_URL = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/f_auto,q_auto`;
+// Cloudinary Image Helper con fallback inteligente a Unsplash
+const getProductImage = (product) => {
+  if (product.id) {
+    return `https://res.cloudinary.com/qmxgvssq/image/upload/f_auto,q_auto,w_600/${product.id}.jpg`;
+  }
 
-const getProductImage = (product: any, extension = 'jpg') => {
-  if (!product || !product.id) return '';
-  return `${CLOUDINARY_BASE_URL}/${product.id}.${extension}`;
+  const name = product.name.toLowerCase();
+  const category = product.category;
+
+  if (name.includes('dubai') || name.includes('chocolate') || name.includes('choco') || name.includes('bombón') || name.includes('fleco')) {
+    return 'https://images.unsplash.com/photo-1549007994-cb92caebd54b?auto=format&fit=crop&w=600&q=80';
+  }
+  if (name.includes('palmera') || name.includes('hojaldre') || name.includes('corbatas') || name.includes('lazos')) {
+    return 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80';
+  }
+  if (name.includes('magdalena') || name.includes('muffin') || name.includes('cake') || name.includes('bizcocho') || name.includes('sobao')) {
+    return 'https://images.unsplash.com/photo-1607958996333-41aef7caefaa?auto=format&fit=crop&w=600&q=80';
+  }
+  if (name.includes('tarta') || name.includes('queso') || name.includes('brazo')) {
+    return 'https://images.unsplash.com/photo-1533134242443-d4fd215305ad?auto=format&fit=crop&w=600&q=80';
+  }
+  if (name.includes('galleta') || name.includes('chookies') || name.includes('cookie') || name.includes('wafer') || name.includes('biscuit')) {
+    return 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?auto=format&fit=crop&w=600&q=80';
+  }
+  if (name.includes('polvorón') || name.includes('mazapán') || name.includes('turrón') || category === 'Navideño') {
+    return 'https://images.unsplash.com/photo-1576618148400-f54bed99fcfd?auto=format&fit=crop&w=600&q=80';
+  }
+  if (name.includes('rosquilla') || name.includes('rosco') || name.includes('buñuelo')) {
+    return 'https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=600&q=80';
+  }
+  if (name.includes('gominola') || name.includes('caramelo') || name.includes('mix')) {
+    return 'https://images.unsplash.com/photo-1582058091505-f87a2e55a40f?auto=format&fit=crop&w=600&q=80';
+  }
+  if (name.includes('aceituna') || name.includes('pipa') || name.includes('patat') || name.includes('frutos')) {
+    return 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?auto=format&fit=crop&w=600&q=80';
+  }
+
+  return 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=600&q=80';
 };
 
 const PRODUCTS_DATABASE = [
@@ -110,16 +139,15 @@ const CATEGORIES = [
   { id: 'Hoteles', name: 'Hoteles / Buffets', icon: Building2, count: PRODUCTS_DATABASE.filter(p => p.category === 'Hoteles').length }
 ];
 
-function ProductImage({ product, className = "w-full h-48 object-cover" }: { product: any, className?: string }) {
+function ProductImage({ product, className = "w-full h-48 object-cover" }) {
   const [hasError, setHasError] = useState(false);
   const imageUrl = getProductImage(product);
 
   if (hasError) {
     return (
-      <div className={`${className} bg-slate-100 flex flex-col items-center justify-center text-slate-400 p-4 text-center`}>
-        <ImageOff className="w-8 h-8 mb-1 text-slate-300" />
-        <span className="text-[10px] font-medium text-slate-400">Imagen no disponible</span>
-        <span className="text-[9px] font-mono text-slate-300 mt-0.5">SKU: {product.id}</span>
+      <div className={`${className} bg-slate-100 flex flex-col items-center justify-center text-slate-400 p-4`}>
+        <ImageOff className="w-8 h-8 mb-1" />
+        <span className="text-[10px]">Imagen no disponible</span>
       </div>
     );
   }
@@ -139,10 +167,10 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todas');
   const [onlySugarFree, setOnlySugarFree] = useState(false);
-  const [cart, setCart] = useState<any[]>([]);
+  const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [selectedProductDetail, setSelectedProductDetail] = useState<any>(null);
-  const [addedAnimation, setAddedAnimation] = useState<string | null>(null);
+  const [selectedProductDetail, setSelectedProductDetail] = useState(null);
+  const [addedAnimation, setAddedAnimation] = useState(null);
 
   const filteredProducts = useMemo(() => {
     return PRODUCTS_DATABASE.filter(product => {
@@ -158,7 +186,7 @@ export default function App() {
     });
   }, [searchTerm, selectedCategory, onlySugarFree]);
 
-  const addToCart = (product: any, quantity = 1) => {
+  const addToCart = (product, quantity = 1) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
@@ -173,19 +201,19 @@ export default function App() {
     setTimeout(() => setAddedAnimation(null), 1200);
   };
 
-  const updateQuantity = (id: string, delta: number) => {
+  const updateQuantity = (id, delta) => {
     setCart(prev => {
       return prev.map(item => {
         if (item.id === id) {
           const newQty = item.quantity + delta;
-          return newQty > 0 ? { ...item, quantity: newQty } : null;
+          return newQty > 0 ? { ...item, quantity: newQty } : item;
         }
         return item;
       }).filter(Boolean);
     });
   };
 
-  const removeFromCart = (id: string) => {
+  const removeFromCart = (id) => {
     setCart(prev => prev.filter(item => item.id !== id));
   };
 
@@ -232,7 +260,6 @@ export default function App() {
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
           
-          {/* Logo Brand */}
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-sky-600 via-blue-700 to-indigo-900 flex items-center justify-center text-white shadow-md shadow-blue-900/15 border border-sky-400/30">
               <span className="font-serif font-bold text-2xl tracking-wider">A</span>
@@ -251,7 +278,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex items-center gap-2 sm:gap-4">
             <a 
               href="https://wa.me/34985742449" 
@@ -263,7 +289,6 @@ export default function App() {
               <span>WhatsApp Directo</span>
             </a>
 
-            {/* Cart Button */}
             <button
               onClick={() => setIsCartOpen(true)}
               className="relative flex items-center gap-2 bg-slate-900 hover:bg-blue-950 text-white px-4 py-2.5 rounded-xl font-medium text-sm transition-all shadow-md hover:shadow-lg active:scale-95 border border-slate-800"
@@ -293,7 +318,7 @@ export default function App() {
               Catálogo visual de dulcería, hojaldres y repostería
             </h2>
             <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-              Explora nuestra gama de productos con imágenes reales. Añade los artículos que necesites y genera tu solicitud de pedido directamente por WhatsApp.
+              Explora nuestra gama de productos con imágenes ilustrativas. Añade los productos que necesites y genera tu solicitud de pedido directamente por WhatsApp.
             </p>
             
             <div className="pt-2 flex flex-wrap items-center justify-center md:justify-start gap-3 text-xs text-slate-300">
@@ -326,12 +351,11 @@ export default function App() {
         </div>
       </section>
 
-      {/* Filter and Search Bar Section */}
+      {/* Filter and Search Bar */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 mb-8 space-y-4">
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
             
-            {/* Search Input */}
             <div className="relative w-full md:w-96">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
@@ -351,7 +375,6 @@ export default function App() {
               )}
             </div>
 
-            {/* Additional Toggle Filters */}
             <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
               <label className="flex items-center gap-2 cursor-pointer bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-slate-700 transition-colors">
                 <input
@@ -369,7 +392,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Categories Pills */}
           <div className="pt-2 border-t border-slate-100 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
             {CATEGORIES.map(cat => {
               const Icon = cat.icon;
@@ -397,7 +419,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Product Grid with Images */}
+        {/* Product Grid */}
         {filteredProducts.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-300 p-8">
             <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -425,14 +447,11 @@ export default function App() {
                   key={product.id}
                   className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:border-sky-300 transition-all flex flex-col justify-between overflow-hidden group"
                 >
-                  {/* Card Image Area */}
                   <div className="relative overflow-hidden bg-slate-100 cursor-pointer" onClick={() => setSelectedProductDetail(product)}>
                     <ProductImage 
                       product={product} 
                       className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-300" 
                     />
-                    
-                    {/* Floating SKU & Category Overlay */}
                     <div className="absolute top-2 left-2 right-2 flex items-center justify-between gap-2">
                       <span className="text-[10px] font-mono font-bold bg-slate-900/80 backdrop-blur-md text-sky-200 px-2 py-0.5 rounded border border-white/20 shadow-sm">
                         SKU: {product.id}
@@ -448,7 +467,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Card Details */}
                   <div className="p-4 space-y-2 flex-1 flex flex-col justify-between">
                     <div>
                       <h3 
@@ -463,7 +481,6 @@ export default function App() {
                       </p>
                     </div>
 
-                    {/* Tag Cloud */}
                     <div className="flex flex-wrap gap-1 pt-2">
                       {product.tags.map(tag => (
                         <span 
@@ -476,7 +493,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Card Action Footer */}
                   <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
                     <button
                       onClick={() => setSelectedProductDetail(product)}
@@ -516,8 +532,6 @@ export default function App() {
       {selectedProductDetail && (
         <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-100 relative animate-in fade-in zoom-in-95 duration-200">
-            
-            {/* Modal Image Header */}
             <div className="relative h-56 bg-slate-100">
               <ProductImage product={selectedProductDetail} className="w-full h-full object-cover" />
               <button
@@ -575,8 +589,6 @@ export default function App() {
       {isCartOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex justify-end">
           <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col relative animate-in slide-in-from-right duration-300">
-            
-            {/* Drawer Header */}
             <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
               <div className="flex items-center gap-2">
                 <ShoppingBag className="w-5 h-5 text-sky-400" />
@@ -590,7 +602,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* Cart Items List */}
             <div className="p-5 flex-1 overflow-y-auto space-y-4">
               {cart.length === 0 ? (
                 <div className="text-center py-16 space-y-3">
@@ -620,7 +631,6 @@ export default function App() {
                       <div className="flex items-center justify-between text-[11px] pt-1">
                         <span className="font-mono text-slate-500">SKU: {item.id}</span>
 
-                        {/* Quantity Controller */}
                         <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-md p-0.5">
                           <button
                             onClick={() => updateQuantity(item.id, -1)}
@@ -643,7 +653,6 @@ export default function App() {
               )}
             </div>
 
-            {/* Cart Footer */}
             {cart.length > 0 && (
               <div className="p-5 border-t border-slate-200 bg-slate-50 space-y-3">
                 <div className="flex items-center justify-between text-sm">
