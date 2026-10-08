@@ -21,10 +21,9 @@ import {
   Loader2
 } from 'lucide-react';
 
-// Enlace CSV oficial de tu Google Sheets
 const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcQuEZEXt1NO9_mYjkl4w9dTJo8wWcI1A6sI-SMakDXDg7z_VCQUIOwVJwhYtQug/pub?output=csv";
 
-// Helper de imágenes: intenta Cloudinary por ID (SKU) y si no, usa fallback por temática
+// Generador de URL de Cloudinary usando el SKU/ID
 const getProductImage = (product) => {
   if (product && product.id) {
     return `https://res.cloudinary.com/qmxgvssq/image/upload/f_auto,q_auto,w_600/${product.id}.jpg`;
@@ -44,30 +43,57 @@ const getProductImage = (product) => {
   return 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=600&q=80';
 };
 
-// Parser CSV ligero que procesa dinámicamente tu hoja de Google Sheets
+// Parser super flexible de CSV (maneja comas dentro de textos, tildes y nombres de columnas variables)
 const parseCSV = (text) => {
-  const lines = text.split('\n').filter(line => line.trim() !== '');
+  const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
   if (lines.length === 0) return [];
 
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/^"|"$/g, ''));
-  
+  // Función interna para dividir por comas sin romper celdas entre comillas
+  const splitCSVLine = (line) => {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"' || char === "'") {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim().replace(/^["']|["']$/g, ''));
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim().replace(/^["']|["']$/g, ''));
+    return result;
+  };
+
+  const rawHeaders = splitCSVLine(lines[0]);
+  const headers = rawHeaders.map(h => h.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+
   return lines.slice(1).map(line => {
-    const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
-    const cleanValues = values.map(v => v ? v.trim().replace(/^"|"$/g, '') : '');
-    
+    const values = splitCSVLine(line);
     const row = {};
     headers.forEach((header, index) => {
-      row[header] = cleanValues[index] || '';
+      row[header] = values[index] || '';
     });
 
+    // Mapeo exhaustivo de cabeceras en español e inglés
+    const id = row['id'] || row['sku'] || row['codigo'] || row['cod'] || values[0] || '';
+    const name = row['name'] || row['nombre de producto'] || row['nombre'] || row['producto'] || values[1] || '';
+    const category = row['category'] || row['categoria'] || row['familia'] || 'Hostelería';
+    const format = row['format'] || row['formato'] || row['descripcion'] || row['presentacion'] || 'Formato Estándar';
+    const tagsRaw = row['tags'] || row['etiquetas'] || row['notas'] || '';
+    const tags = tagsRaw ? tagsRaw.split(/[,;]/).map(t => t.trim()) : ['General'];
+
     return {
-      id: row.id || row.codigo || row.sku || row['código'] || '',
-      name: row.name || row.nombre || row.producto || row['nombre de producto'] || 'Producto sin nombre',
-      category: row.category || row.categoria || row['categoría'] || 'Hostelería',
-      format: row.format || row.formato || 'Formato Estándar',
-      tags: row.tags ? row.tags.split(';').map(t => t.trim()) : (row.etiquetas ? row.etiquetas.split(',').map(t => t.trim()) : ['General'])
+      id: String(id).trim(),
+      name: String(name).trim() || 'Producto sin nombre',
+      category: String(category).trim() || 'Hostelería',
+      format: String(format).trim() || 'Formato Estándar',
+      tags
     };
-  }).filter(item => item.id || item.name);
+  }).filter(item => item.id || (item.name && item.name !== 'Producto sin nombre'));
 };
 
 function ProductImage({ product, className = "w-full h-48 object-cover" }) {
@@ -122,7 +148,7 @@ export default function App() {
   const [selectedProductDetail, setSelectedProductDetail] = useState(null);
   const [addedAnimation, setAddedAnimation] = useState(null);
 
-  // Descarga dinámica desde Google Sheets CSV
+  // Carga desde Google Sheets CSV
   useEffect(() => {
     fetch(GOOGLE_SHEETS_CSV_URL)
       .then(res => res.text())
@@ -134,7 +160,7 @@ export default function App() {
         setIsLoading(false);
       })
       .catch(err => {
-        console.error("Error al cargar Google Sheets CSV:", err);
+        console.error("Error cargando CSV desde Google Sheets:", err);
         setIsLoading(false);
       });
   }, []);
@@ -157,7 +183,7 @@ export default function App() {
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
       const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            product.id.includes(searchTerm.trim());
+                            product.id.toLowerCase().includes(searchTerm.trim().toLowerCase());
       const matchesCategory = selectedCategory === 'Todas' || product.category === selectedCategory;
       const matchesSugarFree = !onlySugarFree || 
                                product.name.toLowerCase().includes('sin azúcar') || 
@@ -279,7 +305,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="space-y-4 max-w-2xl">
             <div className="inline-flex items-center gap-2 bg-sky-500/20 text-sky-300 text-xs px-3 py-1 rounded-full font-medium">
-              <Award className="w-3.5 h-3.5 text-sky-400" /> Proveedor Especializado Hostelería y Alimentación
+              <Award className="w-3.5 h-3.5 text-sky-400" /> Proveedor Especializado HORECA y Alimentación
             </div>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold tracking-tight leading-tight">
               Catálogo visual de dulcería, hojaldres y repostería
@@ -291,7 +317,7 @@ export default function App() {
 
           <div className="bg-white/10 p-6 rounded-2xl max-w-sm w-full text-center space-y-4 border border-white/10">
             <h3 className="font-serif font-semibold text-lg text-sky-200">Atención Personalizada</h3>
-            <p className="text-xs text-slate-300">Consúltanos cualquier duda sobre productos, volúmenes de compra o entregas a tu zona.</p>
+            <p className="text-xs text-slate-300">Consúltanos cualquier duda sobre SKUs, volúmenes de compra o envíos a tu zona.</p>
             <a
               href="https://wa.me/34985742449?text=Hola,%20quisiera%20recibir%20información%20general%20del%20catálogo"
               target="_blank"
@@ -304,7 +330,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* Dynamic Products Grid */}
+      {/* Rejilla de Productos / Cargador */}
       <main className="max-w-7xl mx-auto px-4 py-8 flex-grow w-full">
         {isLoading ? (
           <div className="text-center py-24 space-y-4">
@@ -313,14 +339,14 @@ export default function App() {
           </div>
         ) : (
           <>
-            {/* Filter Bar */}
+            {/* Barra de Filtros */}
             <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 mb-8 space-y-4">
               <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
                 <div className="relative w-full md:w-96">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Buscar por producto"
+                    placeholder="Buscar por producto o SKU..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-600"
@@ -344,7 +370,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Dynamic Categories Pills */}
+              {/* Categorías Dinámicas */}
               <div className="pt-2 border-t border-slate-100 flex items-center gap-2 overflow-x-auto pb-2">
                 {categoriesList.map(cat => {
                   const Icon = cat.icon;
@@ -368,12 +394,12 @@ export default function App() {
               </div>
             </div>
 
-            {/* Product Cards */}
+            {/* Rejilla */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredProducts.map(product => {
                 const isJustAdded = addedAnimation === product.id;
                 return (
-                  <div key={product.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between">
+                  <div key={product.id || product.name} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between">
                     <div className="relative overflow-hidden bg-slate-100 cursor-pointer" onClick={() => setSelectedProductDetail(product)}>
                       <ProductImage product={product} className="w-full h-44 object-cover" />
                       <div className="absolute top-2 left-2 right-2 flex items-center justify-between gap-2">
