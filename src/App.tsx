@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Search, 
   ShoppingBag, 
@@ -14,23 +14,23 @@ import {
   Send,
   Building2,
   Award,
-  ExternalLink,
   Info,
   CheckCircle2,
   Sparkles,
-  ImageOff
+  ImageOff,
+  Loader2
 } from 'lucide-react';
 
-// Generador de imágenes Cloudinary para Cloud Name: qmxgvssq
-const getProductImage = (product) => {
-  const name = product.name.toLowerCase();
+// Enlace CSV oficial de tu Google Sheets
+const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcQuEZEXt1NO9_mYjkl4w9dTJo8wWcI1A6sI-SMakDXDg7z_VCQUIOwVJwhYtQug/pub?output=csv";
 
-  // Si tiene SKU, intenta la ruta de Cloudinary
+// Helper de imágenes: intenta Cloudinary por ID (SKU) y si no, usa fallback por temática
+const getProductImage = (product) => {
   if (product && product.id) {
     return `https://res.cloudinary.com/qmxgvssq/image/upload/f_auto,q_auto,w_600/${product.id}.jpg`;
   }
 
-  // Fallbacks de muestra por categoría/nombre
+  const name = (product.name || '').toLowerCase();
   if (name.includes('dubai') || name.includes('chocolate') || name.includes('choco')) {
     return 'https://images.unsplash.com/photo-1549007994-cb92caebd54b?auto=format&fit=crop&w=600&q=80';
   }
@@ -44,92 +44,39 @@ const getProductImage = (product) => {
   return 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=600&q=80';
 };
 
-const PRODUCTS_DATABASE = [
-  // Página 1
-  { id: '39010381', name: 'Rosquilla Frita Dura 3 Kg', category: 'Hostelería', format: 'Caja 3 Kg', tags: ['Tradicional', 'Frito'] },
-  { id: '15010001', name: 'Chookies Granel 2 Kg', category: 'Hostelería', format: 'Caja 2 Kg', tags: ['Chocolate', 'Granel'] },
-  { id: '39011640', name: 'Magdalenas Aceite Oliva Envueltas 2 Kg.', category: 'Hostelería', format: 'Caja 2 Kg', tags: ['Aceite Oliva', 'Envuelto'] },
-  { id: '39010494', name: 'Pasta De Almendra Envuelta 2,5 Kg', category: 'Hostelería', format: 'Caja 2,5 Kg', tags: ['Almendra', 'Envuelto'] },
-  { id: '39011752', name: 'Pasta De Almendra Envuelta Estuche 12 Unid.', category: 'Hostelería', format: 'Estuche 12 uds', tags: ['Almendra', 'Estuche'] },
-  { id: '39011148', name: 'Magdalenas Cuatro Jotas Envueltas 2,5 Kg.', category: 'Hostelería', format: 'Caja 2,5 Kg', tags: ['Casero', 'Envuelto'] },
-  { id: '39011557', name: 'Magdalenas Supremas Bolsa 480 Grs.', category: 'Hostelería', format: 'Bolsa 480 g', tags: ['Supremas'] },
-  { id: '39011631', name: 'Corbatas Estuche 10 Unidades', category: 'Hostelería', format: 'Estuche 10 uds', tags: ['Hojaldre', 'Típico'] },
-  { id: '39011891', name: 'Sobaos Paquete 24 Unid. Envuelto', category: 'Hoteles', format: 'Paquete 24 uds', tags: ['Desayuno', 'Envuelto'] },
-  { id: '39011816', name: 'Sobaos Paquete 12 Unid. Envuelto', category: 'Hostelería', format: 'Paquete 12 uds', tags: ['Desayuno', 'Mantequilla'] },
-  { id: '39010628', name: 'Sobaos De Mantequilla 6 Unid. Envuelto', category: 'Hostelería', format: 'Paquete 6 uds', tags: ['Mantequilla', 'Gourmet'] },
-  { id: '39012050', name: 'Cake Mármol 350 Grs.', category: 'Empaquetados', format: 'Unidad 350 g', tags: ['Chocolate', 'Bizcocho'] },
+// Parser CSV ligero que procesa dinámicamente tu hoja de Google Sheets
+const parseCSV = (text) => {
+  const lines = text.split('\n').filter(line => line.trim() !== '');
+  if (lines.length === 0) return [];
+
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/^"|"$/g, ''));
   
-  // Página 2
-  { id: '39011423', name: 'Muffins Con Pepitas De Choco 450 Grs.', category: 'Empaquetados', format: 'Paquete 450 g', tags: ['Chocolate', 'Muffin'] },
-  { id: '39011974', name: 'Suspiros De Mantequilla Bañados En Chocolate 6 Unid.', category: 'Hostelería', format: 'Paquete 6 uds', tags: ['Mantequilla', 'Chocolate'] },
-  { id: '39011890', name: 'Gominola Clear Little Mix 1 Kg', category: 'Granel', format: 'Bolsa 1 Kg', tags: ['Gominolas', 'Mix'] },
-  { id: '39012107', name: 'Blanquitos Envueltos 3 Kg', category: 'Envueltos', format: 'Caja 3 Kg', tags: ['Glaseado', 'Envuelto'] },
-  { id: '39011939', name: 'Tarta De Queso 2,2 Kg', category: 'Granel', format: 'Pieza 2,2 Kg', tags: ['Repostería', 'Queso'] },
-  { id: '39012122', name: 'Tableta Choco Estilo Dubai 100 Grs.', category: 'Empaquetados', format: 'Tableta 100 g', tags: ['Tendencia', 'Dubai', 'Pistacho'] },
-  { id: '39012108', name: 'Barritas Choco Dubai 40 Grs.', category: 'Empaquetados', format: 'Expositor 40 g', tags: ['Tendencia', 'Dubai', 'Snack'] },
-  { id: '39011600', name: 'Aceituna Verde Con Hueso 2,4 Kg', category: 'Granel', format: 'Lata 2,4 Kg', tags: ['Aperitivo', 'Hostelería'] },
-  { id: '39011976', name: 'Tarta De Almendra 2 Kg', category: 'Granel', format: 'Pieza 2 Kg', tags: ['Almendra', 'Artesano'] },
-  { id: '39012096', name: 'Palmeras Rellenas De Ferrero 2,2 Kg', category: 'Granel', format: 'Caja 2,2 Kg', tags: ['Gourmet', 'Ferrero', 'Novedad'] },
-  { id: '39011626', name: 'Rosquillas Colores Paquete', category: 'Empaquetados', format: 'Paquete', tags: ['Glaseado', 'Infantil'] },
-  { id: '39012101', name: 'Quatro Biscuits Bolsa 300 Grs.', category: 'Empaquetados', format: 'Bolsa 300 g', tags: ['Galletas', 'Crujiente'] },
-  { id: '39012068', name: 'Galletas Choco Cool Cream (Rellenas Crema De Leche) 1 Kg', category: 'Granel', format: 'Caja 1 Kg', tags: ['Crema Leche', 'Chocolate'] },
-  { id: '39011328', name: 'Roscos de Yogurt 375 Grs.', category: 'Empaquetados', format: 'Paquete 375 g', tags: ['Yogurt', 'Roscos'] },
-  { id: '39012095', name: 'Palmera Rellena De Kinder 2,2 Kg', category: 'Granel', format: 'Caja 2,2 Kg', tags: ['Kinder', 'Gourmet', 'Novedad'] },
+  return lines.slice(1).map(line => {
+    const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
+    const cleanValues = values.map(v => v ? v.trim().replace(/^"|"$/g, '') : '');
+    
+    const row = {};
+    headers.forEach((header, index) => {
+      row[header] = cleanValues[index] || '';
+    });
 
-  // Página 3 & 4
-  { id: '39012098', name: 'Palmeras Rellenas De Lotus 2,2 Kg', category: 'Granel', format: 'Caja 2,2 Kg', tags: ['Lotus', 'Caramelo', 'Novedad'] },
-  { id: '39012097', name: 'Palmeras Rellenas De Oreo 2,2 Kg', category: 'Granel', format: 'Caja 2,2 Kg', tags: ['Oreo', 'Cacao', 'Novedad'] },
-  { id: '39012099', name: 'Palmeras Rellenas De Crema De Limón 2,2 Kg', category: 'Granel', format: 'Caja 2,2 Kg', tags: ['Limón', 'Fresco'] },
-  { id: '39011289', name: 'Rosco De Vino 4 Kg', category: 'Navideño', format: 'Caja 4 Kg', tags: ['Navidad', 'Tradicional'] },
-  { id: '19010022', name: 'Palmeras De Hojaldre Crujiente Granel 2,5 Kg', category: 'Granel', format: 'Caja 2,5 Kg', tags: ['Hojaldre', 'Crujiente'] },
-  { id: '39012052', name: 'Magdalenas Cuadradas Limón Paquete 300 Grs.', category: 'Empaquetados', format: 'Paquete 300 g', tags: ['Limón', 'Desayuno'] },
-  { id: '39012051', name: 'Magdalenas Rellenas Cacao Paquete 245 Grs.', category: 'Empaquetados', format: 'Paquete 245 g', tags: ['Cacao', 'Relleno'] },
-  { id: '39011787', name: 'Rellenitas De Avellana Paquete 165 Grs.', category: 'Empaquetados', format: 'Paquete 165 g', tags: ['Avellana', 'Crujiente'] },
-  { id: '39011630', name: 'Palmeras de Mantequilla Envueltas 6 Unid.', category: 'Empaquetados', format: 'Paquete 6 uds', tags: ['Mantequilla', 'Envuelto'] },
-  { id: '39012061', name: 'Mini Muffin Estrella Rellena de Choco Envuelta 1,7 Kg', category: 'Hostelería', format: 'Caja 1,7 Kg', tags: ['Mini', 'Relleno', 'Chocolate'] },
-  { id: '39011110', name: 'Mini Magdalenas Envueltas 1,7 Kg', category: 'Hostelería', format: 'Caja 1,7 Kg', tags: ['Mini', 'Cafetería'] },
-  { id: '39011840', name: 'Palmera Grande Cacao 80 Grs.', category: 'Envueltos', format: 'Unidad 80 g', tags: ['Cacao', 'Envuelto'] },
-  { id: '39012114', name: 'Chocolate Sin Azúcar Negro Con Café 75 Grs.', category: 'Empaquetados', format: 'Tableta 75 g', tags: ['Sin Azúcar', 'Café', 'Saludable'] },
-  { id: '39012113', name: 'Chocolate Sin Azúcar Negro Con Banana 75 Grs.', category: 'Empaquetados', format: 'Tableta 75 g', tags: ['Sin Azúcar', 'Plátano', 'Saludable'] },
-  { id: '39012111', name: 'Chocolate Sin Azúcar Negro Con Fresa 75 Grs.', category: 'Empaquetados', format: 'Tableta 75 g', tags: ['Sin Azúcar', 'Fresa', 'Saludable'] },
-  { id: '39012112', name: 'Chocolate Blanco Sin Azúcar Con Kiwi 75 Grs.', category: 'Empaquetados', format: 'Tableta 75 g', tags: ['Sin Azúcar', 'Blanco', 'Kiwi'] },
-  { id: '39011611', name: 'Surtido Galletas Camioncito 250 Grs.', category: 'Empaquetados', format: 'Caja Regalo 250 g', tags: ['Surtido', 'Regalo'] },
-  { id: '39011990', name: 'Wafer De Cacao 200 Grs.', category: 'Empaquetados', format: 'Paquete 200 g', tags: ['Wafer', 'Cacao'] },
-  { id: '39010963', name: 'Mexicanitos Rellenos Nata 1,7 Kg', category: 'Granel', format: 'Caja 1,7 Kg', tags: ['Nata', 'Relleno'] },
-
-  // Página 5 & Especial
-  { id: '39010652', name: 'Rosquillas Integrales Sin Azúcar Envueltas 2 Kg', category: 'Envueltos', format: 'Caja 2 Kg', tags: ['Sin Azúcar', 'Integral', 'Saludable'] },
-  { id: '06010001', name: 'Rosquillas Integrales Sin Azúcar Granel 2 Kg', category: 'Granel', format: 'Caja 2 Kg', tags: ['Sin Azúcar', 'Integral'] },
-  { id: '39011885', name: 'Tacos Rellenos De Nutella 2 Kg', category: 'Granel', format: 'Caja 2 Kg', tags: ['Nutella', 'Avellana'] },
-  { id: '39011762', name: 'Polvorón De Pistacho 3,5 Kg', category: 'Navideño', format: 'Caja 3,5 Kg', tags: ['Navidad', 'Pistacho', 'Gourmet'] },
-  { id: '39011055', name: 'Polvorón De Almendra Bañado En Chocolate 4 Kg', category: 'Navideño', format: 'Caja 4 Kg', tags: ['Navidad', 'Chocolate', 'Almendra'] },
-  { id: '39010694', name: 'Polvorón De Almendra 4,5 Kg', category: 'Navideño', format: 'Caja 4,5 Kg', tags: ['Navidad', 'Almendra Tradicional'] },
-  { id: '39010591', name: 'Mazapán Artesano Estuche 500 Grs.', category: 'Navideño', format: 'Estuche 500 g', tags: ['Mazapán', 'Navidad', 'Artesano'] },
-  { id: '39012017', name: 'Turrón Surtido En Porciones (Andresitos) 3 Kg.', category: 'Navideño', format: 'Caja 3 Kg', tags: ['Turrón', 'Navidad', 'Porciones'] },
-  { id: '39011409', name: 'Pan De Cádiz 350 Grs.', category: 'Navideño', format: 'Pieza 350 g', tags: ['Navidad', 'Mazapán', 'Fruta'] },
-  { id: '39011405', name: 'Brazo De Toledo 500 Grs.', category: 'Navideño', format: 'Pieza 500 g', tags: ['Navidad', 'Tradicional'] },
-  { id: '39010267', name: 'Casadiellas Estuche 6 Unid.', category: 'Empaquetados', format: 'Estuche 6 uds', tags: ['Asturias', 'Típico', 'Nuez'] },
-  { id: '39010294', name: 'Carajitos Estuche 300 Gr.', category: 'Empaquetados', format: 'Estuche 300 g', tags: ['Asturias', 'Avellana'] }
-];
-
-const CATEGORIES = [
-  { id: 'Todas', name: 'Todo el Catálogo', icon: Store, count: PRODUCTS_DATABASE.length },
-  { id: 'Hostelería', name: 'Hostelería', icon: Utensils, count: PRODUCTS_DATABASE.filter(p => p.category === 'Hostelería').length },
-  { id: 'Granel', name: 'Granel', icon: Package, count: PRODUCTS_DATABASE.filter(p => p.category === 'Granel').length },
-  { id: 'Empaquetados', name: 'Empaquetados', icon: Store, count: PRODUCTS_DATABASE.filter(p => p.category === 'Empaquetados').length },
-  { id: 'Envueltos', name: 'Envueltos Individual', icon: CheckCircle2, count: PRODUCTS_DATABASE.filter(p => p.category === 'Envueltos').length },
-  { id: 'Navideño', name: 'Especial Navideño', icon: Sparkles, count: PRODUCTS_DATABASE.filter(p => p.category === 'Navideño').length },
-  { id: 'Hoteles', name: 'Hoteles / Buffets', icon: Building2, count: PRODUCTS_DATABASE.filter(p => p.category === 'Hoteles').length }
-];
+    return {
+      id: row.id || row.codigo || row.sku || row['código'] || '',
+      name: row.name || row.nombre || row.producto || row['nombre de producto'] || 'Producto sin nombre',
+      category: row.category || row.categoria || row['categoría'] || 'Hostelería',
+      format: row.format || row.formato || 'Formato Estándar',
+      tags: row.tags ? row.tags.split(';').map(t => t.trim()) : (row.etiquetas ? row.etiquetas.split(',').map(t => t.trim()) : ['General'])
+    };
+  }).filter(item => item.id || item.name);
+};
 
 function ProductImage({ product, className = "w-full h-48 object-cover" }) {
   const [imgSrc, setImgSrc] = useState(() => getProductImage(product));
   const [hasError, setHasError] = useState(false);
 
   const handleError = () => {
-    // Si la foto en Cloudinary (ej: 39010381.jpg) no existe aún en la cuenta, carga la foto temática de muestra
     if (imgSrc.includes('cloudinary.com')) {
-      const name = product.name.toLowerCase();
+      const name = (product.name || '').toLowerCase();
       if (name.includes('dubai') || name.includes('chocolate') || name.includes('choco')) {
         setImgSrc('https://images.unsplash.com/photo-1549007994-cb92caebd54b?auto=format&fit=crop&w=600&q=80');
       } else if (name.includes('palmera') || name.includes('hojaldre') || name.includes('corbatas')) {
@@ -148,7 +95,7 @@ function ProductImage({ product, className = "w-full h-48 object-cover" }) {
     return (
       <div className={`${className} bg-slate-100 flex flex-col items-center justify-center text-slate-400 p-4`}>
         <ImageOff className="w-8 h-8 mb-1" />
-        <span className="text-[10px]">Sin imagen disponible</span>
+        <span className="text-[10px]">Sin imagen</span>
       </div>
     );
   }
@@ -165,6 +112,8 @@ function ProductImage({ product, className = "w-full h-48 object-cover" }) {
 }
 
 export default function App() {
+  const [products, setProducts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todas');
   const [onlySugarFree, setOnlySugarFree] = useState(false);
@@ -173,8 +122,40 @@ export default function App() {
   const [selectedProductDetail, setSelectedProductDetail] = useState(null);
   const [addedAnimation, setAddedAnimation] = useState(null);
 
+  // Descarga dinámica desde Google Sheets CSV
+  useEffect(() => {
+    fetch(GOOGLE_SHEETS_CSV_URL)
+      .then(res => res.text())
+      .then(csvText => {
+        const parsedData = parseCSV(csvText);
+        if (parsedData.length > 0) {
+          setProducts(parsedData);
+        }
+        setIsLoading(false);
+      })
+      .catch(err => {
+        console.error("Error al cargar Google Sheets CSV:", err);
+        setIsLoading(false);
+      });
+  }, []);
+
+  const categoriesList = useMemo(() => {
+    const cats = ['Todas'];
+    products.forEach(p => {
+      if (p.category && !cats.includes(p.category)) {
+        cats.push(p.category);
+      }
+    });
+    return cats.map(catName => ({
+      id: catName,
+      name: catName === 'Todas' ? 'Todo el Catálogo' : catName,
+      icon: catName === 'Hostelería' ? Utensils : catName === 'Granel' ? Package : catName === 'Navideño' ? Sparkles : Store,
+      count: catName === 'Todas' ? products.length : products.filter(p => p.category === catName).length
+    }));
+  }, [products]);
+
   const filteredProducts = useMemo(() => {
-    return PRODUCTS_DATABASE.filter(product => {
+    return products.filter(product => {
       const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                             product.id.includes(searchTerm.trim());
       const matchesCategory = selectedCategory === 'Todas' || product.category === selectedCategory;
@@ -185,7 +166,7 @@ export default function App() {
 
       return matchesSearch && matchesCategory && matchesSugarFree;
     });
-  }, [searchTerm, selectedCategory, onlySugarFree]);
+  }, [products, searchTerm, selectedCategory, onlySugarFree]);
 
   const addToCart = (product, quantity = 1) => {
     setCart(prev => {
@@ -241,10 +222,10 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col">
       
-      {/* Barra superior */}
+      {/* Top Banner */}
       <div className="bg-slate-900 text-sky-100 text-xs py-2 px-4 text-center font-medium flex items-center justify-center gap-3">
         <span className="bg-sky-800 px-2.5 py-0.5 rounded text-[11px] uppercase tracking-wider text-sky-200 font-semibold">
-          Atención Hostelería & Tiendas
+          Atención HORECA & Tiendas
         </span>
         <span className="hidden sm:inline">Distribución oficial de pastelería, dulces y repostería.</span>
         <a href="https://wa.me/34985742449" target="_blank" rel="noreferrer" className="underline hover:text-white flex items-center gap-1">
@@ -252,7 +233,7 @@ export default function App() {
         </a>
       </div>
 
-      {/* Cabecera Principal */}
+      {/* Main Header */}
       <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -304,13 +285,13 @@ export default function App() {
               Catálogo visual de dulcería, hojaldres y repostería
             </h2>
             <p className="text-slate-300 text-sm sm:text-base">
-              Explora nuestra gama de productos con imágenes ilustrativas. Añade los productos que necesites y genera tu solicitud de pedido directamente por WhatsApp.
+              Explora nuestra gama de productos sincronizada en tiempo real. Añade los productos que necesites y genera tu pedido por WhatsApp.
             </p>
           </div>
 
           <div className="bg-white/10 p-6 rounded-2xl max-w-sm w-full text-center space-y-4 border border-white/10">
             <h3 className="font-serif font-semibold text-lg text-sky-200">Atención Personalizada</h3>
-            <p className="text-xs text-slate-300">Consúltanos cualquier duda sobre SKUs, volúmenes de compra o envíos a tu zona.</p>
+            <p className="text-xs text-slate-300">Consúltanos cualquier duda sobre productos, volúmenes de compra o entregas a tu zona.</p>
             <a
               href="https://wa.me/34985742449?text=Hola,%20quisiera%20recibir%20información%20general%20del%20catálogo"
               target="_blank"
@@ -323,116 +304,127 @@ export default function App() {
         </div>
       </section>
 
-      {/* Buscador y Categorías */}
+      {/* Dynamic Products Grid */}
       <main className="max-w-7xl mx-auto px-4 py-8 flex-grow w-full">
-        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 mb-8 space-y-4">
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div className="relative w-full md:w-96">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Buscar por producto o Código SKU (ej. 39010381)..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-600"
-              />
-            </div>
-
-            <div className="flex items-center gap-4 w-full md:w-auto justify-between">
-              <label className="flex items-center gap-2 cursor-pointer bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium">
-                <input
-                  type="checkbox"
-                  checked={onlySugarFree}
-                  onChange={(e) => setOnlySugarFree(e.target.checked)}
-                  className="rounded text-sky-600 h-4 w-4"
-                />
-                <span>Sólo Sin Azúcar / Integral</span>
-              </label>
-
-              <span className="text-xs font-semibold text-slate-600 bg-sky-50 px-3 py-2 rounded-xl">
-                {filteredProducts.length} producto(s)
-              </span>
-            </div>
+        {isLoading ? (
+          <div className="text-center py-24 space-y-4">
+            <Loader2 className="w-10 h-10 text-sky-700 animate-spin mx-auto" />
+            <p className="text-slate-600 font-medium">Cargando catálogo completo desde Google Sheets...</p>
           </div>
+        ) : (
+          <>
+            {/* Filter Bar */}
+            <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 mb-8 space-y-4">
+              <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div className="relative w-full md:w-96">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por producto"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-600"
+                  />
+                </div>
 
-          <div className="pt-2 border-t border-slate-100 flex items-center gap-2 overflow-x-auto pb-2">
-            {CATEGORIES.map(cat => {
-              const Icon = cat.icon;
-              const isSelected = selectedCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium whitespace-nowrap ${
-                    isSelected ? 'bg-sky-800 text-white' : 'bg-slate-100 text-slate-700'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{cat.name}</span>
-                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${isSelected ? 'bg-sky-950 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                    {cat.count}
+                <div className="flex items-center gap-4 w-full md:w-auto justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium">
+                    <input
+                      type="checkbox"
+                      checked={onlySugarFree}
+                      onChange={(e) => setOnlySugarFree(e.target.checked)}
+                      className="rounded text-sky-600 h-4 w-4"
+                    />
+                    <span>Sólo Sin Azúcar / Integral</span>
+                  </label>
+
+                  <span className="text-xs font-semibold text-slate-600 bg-sky-50 px-3 py-2 rounded-xl">
+                    {filteredProducts.length} producto(s)
                   </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Rejilla de Productos */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredProducts.map(product => {
-            const isJustAdded = addedAnimation === product.id;
-            return (
-              <div key={product.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between">
-                <div className="relative overflow-hidden bg-slate-100 cursor-pointer" onClick={() => setSelectedProductDetail(product)}>
-                  <ProductImage product={product} className="w-full h-44 object-cover" />
-                  <div className="absolute top-2 left-2 right-2 flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-mono font-bold bg-slate-900/80 text-sky-200 px-2 py-0.5 rounded">
-                      SKU: {product.id}
-                    </span>
-                    <span className="text-[10px] font-semibold bg-slate-900/80 text-white px-2 py-0.5 rounded-full">
-                      {product.category}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-4 space-y-2 flex-1 flex flex-col justify-between">
-                  <div>
-                    <h3 onClick={() => setSelectedProductDetail(product)} className="font-serif font-bold text-sm text-slate-900 cursor-pointer line-clamp-2">
-                      {product.name}
-                    </h3>
-                    <p className="text-xs text-slate-500 font-medium mt-2 flex items-center gap-1">
-                      <Package className="w-3.5 h-3.5 text-sky-700" /> {product.format}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1 pt-2">
-                    {product.tags.map(tag => (
-                      <span key={tag} className="text-[10px] bg-sky-50 text-sky-800 px-2 py-0.5 rounded-md font-medium">
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
-                  <button onClick={() => setSelectedProductDetail(product)} className="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600">
-                    <Info className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    onClick={() => addToCart(product)}
-                    className={`flex-1 py-2.5 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 text-white ${
-                      isJustAdded ? 'bg-emerald-600' : 'bg-sky-800 hover:bg-sky-900'
-                    }`}
-                  >
-                    {isJustAdded ? <><Check className="w-4 h-4" /> ¡Añadido!</> : <><Plus className="w-4 h-4" /> Añadir al Pedido</>}
-                  </button>
                 </div>
               </div>
-            );
-          })}
-        </div>
+
+              {/* Dynamic Categories Pills */}
+              <div className="pt-2 border-t border-slate-100 flex items-center gap-2 overflow-x-auto pb-2">
+                {categoriesList.map(cat => {
+                  const Icon = cat.icon;
+                  const isSelected = selectedCategory === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium whitespace-nowrap ${
+                        isSelected ? 'bg-sky-800 text-white' : 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span>{cat.name}</span>
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${isSelected ? 'bg-sky-950 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                        {cat.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Product Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filteredProducts.map(product => {
+                const isJustAdded = addedAnimation === product.id;
+                return (
+                  <div key={product.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between">
+                    <div className="relative overflow-hidden bg-slate-100 cursor-pointer" onClick={() => setSelectedProductDetail(product)}>
+                      <ProductImage product={product} className="w-full h-44 object-cover" />
+                      <div className="absolute top-2 left-2 right-2 flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-mono font-bold bg-slate-900/80 text-sky-200 px-2 py-0.5 rounded">
+                          SKU: {product.id}
+                        </span>
+                        <span className="text-[10px] font-semibold bg-slate-900/80 text-white px-2 py-0.5 rounded-full">
+                          {product.category}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-4 space-y-2 flex-1 flex flex-col justify-between">
+                      <div>
+                        <h3 onClick={() => setSelectedProductDetail(product)} className="font-serif font-bold text-sm text-slate-900 cursor-pointer line-clamp-2">
+                          {product.name}
+                        </h3>
+                        <p className="text-xs text-slate-500 font-medium mt-2 flex items-center gap-1">
+                          <Package className="w-3.5 h-3.5 text-sky-700" /> {product.format}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1 pt-2">
+                        {product.tags.map((tag, idx) => (
+                          <span key={idx} className="text-[10px] bg-sky-50 text-sky-800 px-2 py-0.5 rounded-md font-medium">
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
+                      <button onClick={() => setSelectedProductDetail(product)} className="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600">
+                        <Info className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => addToCart(product)}
+                        className={`flex-1 py-2.5 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 text-white ${
+                          isJustAdded ? 'bg-emerald-600' : 'bg-sky-800 hover:bg-sky-900'
+                        }`}
+                      >
+                        {isJustAdded ? <><Check className="w-4 h-4" /> ¡Añadido!</> : <><Plus className="w-4 h-4" /> Añadir al Pedido</>}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </main>
 
       {/* Modal Detalle */}
